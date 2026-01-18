@@ -29,6 +29,7 @@ const FRONTEND_URLS = [
 	'https://cine-booker.vercel.app',
 	'https://www.cine-booker.vercel.app',
 	'http://localhost:3000', // for local development
+	'http://localhost:5173', // for local development
 	'http://localhost:3001'  // backup local port
 ]
 
@@ -134,7 +135,7 @@ app.use('*', (req, res) => {
 	})
 })
 
-const port = process.env.PORT || 8080
+const port = process.env.PORT || 3000
 
 app.listen(port, '0.0.0.0', () => {
 	console.log(`Server running on port ${port}`)

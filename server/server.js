@@ -26,6 +26,8 @@ const app = express()
 
 // Frontend URLs (remove trailing slash and add both www and non-www versions)
 const FRONTEND_URLS = [
+	'http://d2wjw0tm17zr9g.cloudfront.net',
+	'https://d2wjw0tm17zr9g.cloudfront.net',
 	'https://cine-booker.vercel.app',
 	'https://www.cine-booker.vercel.app',
 	'http://localhost:3000', // for local development

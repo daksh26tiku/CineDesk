@@ -30,6 +30,7 @@ const FRONTEND_URLS = [
 	'https://d2wjw0tm17zr9g.cloudfront.net',
 	// 'https://cine-booker.vercel.app',
 	'https://cine-desk.vercel.app',
+	'https://cine-desk-seven.vercel.app',
 	// 'https://www.cine-booker.vercel.app',
 	'https://www.cine-desk.vercel.app',
 	'http://localhost:3000', // for local development

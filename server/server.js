@@ -44,19 +44,12 @@ const corsOptions = {
 		// Allow requests with no origin (mobile apps, postman, etc.)
 		if (!origin) return callback(null, true)
 		
-		// Check if it's in the allowed list
 		if (FRONTEND_URLS.includes(origin)) {
-			return callback(null, true)
+			callback(null, true)
+		} else {
+			console.log('Blocked by CORS:', origin)
+			callback(null, false)
 		}
-		
-		// Allow any Vercel domain (production, preview, branch deployments)
-		// Matches: *.vercel.app for automatic preview deployments
-		if (origin.endsWith('.vercel.app')) {
-			return callback(null, true)
-		}
-		
-		console.log('Blocked by CORS:', origin)
-		callback(new Error('Not allowed by CORS'))
 	},
 	credentials: true, // Allow cookies to be sent
 	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

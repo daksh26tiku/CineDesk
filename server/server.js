@@ -44,29 +44,40 @@ const corsOptions = {
 		// Allow requests with no origin (mobile apps, postman, etc.)
 		if (!origin) return callback(null, true)
 		
-		if (FRONTEND_URLS.includes(origin)) {
-			callback(null, true)
-		} else {
-			console.log('Blocked by CORS:', origin)
-			callback(null, false)
+		// Development origins (localhost)
+		const isLocalhost = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')
+		
+		// Production: Allow any Vercel domain (*.vercel.app)
+		const isVercelDomain = origin.includes('.vercel.app') || origin.endsWith('.vercel.app')
+		
+		// Check explicit list
+		const isInList = FRONTEND_URLS.includes(origin)
+		
+		if (isLocalhost || isVercelDomain || isInList) {
+			console.log('CORS allowed for origin:', origin)
+			return callback(null, true)
 		}
+		
+		console.log('CORS blocked for origin:', origin)
+		callback(new Error('Not allowed by CORS'))
 	},
 	credentials: true, // Allow cookies to be sent
-	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-	allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-	exposedHeaders: ['Set-Cookie']
+	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+	allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+	exposedHeaders: ['Set-Cookie'],
+	optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 }
 
-// Apply middleware in correct order
+// Apply CORS FIRST - before any other middleware
+app.use(cors(corsOptions))
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions))
+
+// Apply other middleware after CORS
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use(cookieParser())
-
-// Apply CORS before other middleware
-app.use(cors(corsOptions))
-
-// Handle preflight requests
-app.options('*', cors(corsOptions))
 
 // Other middleware
 app.use(morgan('combined')) // Use 'combined' for production logging
@@ -75,6 +86,7 @@ app.use(mongoSanitize())
 // Configure helmet for production
 app.use(helmet({
 	crossOriginEmbedderPolicy: false,
+	crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin resources
 	contentSecurityPolicy: {
 		directives: {
 			defaultSrc: ["'self'"],

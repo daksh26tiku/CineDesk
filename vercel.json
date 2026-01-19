@@ -16,11 +16,19 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "server/server.js"
+      "dest": "/server/server.js"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "/client/dist/assets/$1"
+    },
+    {
+      "src": "/(.*\\.(js|css|json|ico|png|jpg|jpeg|svg|gif|woff|woff2|ttf|eot))",
+      "dest": "/client/dist/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "client/$1"
+      "dest": "/client/dist/index.html"
     }
   ]
 }

@@ -14,7 +14,9 @@ import Showtime from "./pages/Showtime";
 import Tickets from "./pages/Tickets";
 import User from "./pages/User";
 
-// Removed axios.defaults - using axiosConfig.js instead for proper Vercel deployment
+axios.defaults.baseURL =
+  import.meta.env.VITE_SERVER_URL || "http://localhost:8080";
+axios.defaults.withCredentials = true;
 
 function App() {
   return (

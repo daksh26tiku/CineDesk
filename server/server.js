@@ -28,8 +28,10 @@ const app = express()
 const FRONTEND_URLS = [
 	'http://d2wjw0tm17zr9g.cloudfront.net',
 	'https://d2wjw0tm17zr9g.cloudfront.net',
-	'https://cine-booker.vercel.app',
-	'https://www.cine-booker.vercel.app',
+	// 'https://cine-booker.vercel.app',
+	'https://cine-desk.vercel.app',
+	// 'https://www.cine-booker.vercel.app',
+	'https://www.cine-desk.vercel.app',
 	'http://localhost:3000', // for local development
 	'http://localhost:5173', // for local development
 	'http://localhost:3001'  // backup local port
@@ -41,12 +43,19 @@ const corsOptions = {
 		// Allow requests with no origin (mobile apps, postman, etc.)
 		if (!origin) return callback(null, true)
 		
+		// Check if it's in the allowed list
 		if (FRONTEND_URLS.includes(origin)) {
-			callback(null, true)
-		} else {
-			console.log('Blocked by CORS:', origin)
-			callback(new Error('Not allowed by CORS'))
+			return callback(null, true)
 		}
+		
+		// Allow any Vercel domain (production, preview, branch deployments)
+		// Matches: *.vercel.app for automatic preview deployments
+		if (origin.endsWith('.vercel.app')) {
+			return callback(null, true)
+		}
+		
+		console.log('Blocked by CORS:', origin)
+		callback(new Error('Not allowed by CORS'))
 	},
 	credentials: true, // Allow cookies to be sent
 	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -84,14 +93,16 @@ app.use(helmet({
 
 app.use(xss())
 
-// Add a health check endpoint
-app.get('/health', (req, res) => {
+// Add a health check endpoint (available at both /health and /api/health)
+const healthCheck = (req, res) => {
 	res.status(200).json({ 
 		status: 'OK', 
 		timestamp: new Date().toISOString(),
 		environment: process.env.NODE_ENV || 'development'
 	})
-})
+}
+app.get('/health', healthCheck)
+app.get('/api/health', healthCheck)
 
 // Add request logging middleware for debugging
 app.use((req, res, next) => {
@@ -101,7 +112,14 @@ app.use((req, res, next) => {
 	next()
 })
 
-// Routes
+// Routes - prefix with /api for Vercel deployment
+app.use('/api/auth', auth)
+app.use('/api/cinema', cinema)
+app.use('/api/theater', theater)
+app.use('/api/movie', movie)
+app.use('/api/showtime', showtime)
+
+// Also support non-prefixed routes for local development backward compatibility
 app.use('/auth', auth)
 app.use('/cinema', cinema)
 app.use('/theater', theater)
@@ -139,8 +157,14 @@ app.use('*', (req, res) => {
 
 const port = process.env.PORT || 3000
 
-app.listen(port, '0.0.0.0', () => {
-	console.log(`Server running on port ${port}`)
-	console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
-	console.log(`Allowed origins: ${FRONTEND_URLS.join(', ')}`)
-})
+// Only listen if not in serverless environment (Vercel)
+if (require.main === module) {
+	app.listen(port, '0.0.0.0', () => {
+		console.log(`Server running on port ${port}`)
+		console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
+		console.log(`Allowed origins: ${FRONTEND_URLS.join(', ')}`)
+	})
+}
+
+// Export for Vercel serverless
+module.exports = app

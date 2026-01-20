@@ -33,7 +33,7 @@ const FRONTEND_URLS = [
 	'https://cine-desk-seven.vercel.app',
 	// 'https://www.cine-booker.vercel.app',
 	'https://www.cine-desk.vercel.app',
-	'https://cine-desk-client.vercel.app/',
+	'https://cine-desk-client.vercel.app',
 	'http://localhost:3000', // for local development
 	'http://localhost:5173', // for local development
 	'http://localhost:3001'  // backup local port

@@ -44,22 +44,12 @@ const corsOptions = {
 		// Allow requests with no origin (mobile apps, postman, etc.)
 		if (!origin) return callback(null, true)
 		
-		// Development origins (localhost)
-		const isLocalhost = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')
-		
-		// Production: Allow any Vercel domain (*.vercel.app)
-		const isVercelDomain = origin.includes('.vercel.app') || origin.endsWith('.vercel.app')
-		
-		// Check explicit list
-		const isInList = FRONTEND_URLS.includes(origin)
-		
-		if (isLocalhost || isVercelDomain || isInList) {
-			console.log('CORS allowed for origin:', origin)
-			return callback(null, true)
+		if (FRONTEND_URLS.includes(origin)) {
+			callback(null, true)
+		} else {
+			console.log('Blocked by CORS:', origin)
+			callback(new Error('Not allowed by CORS'))
 		}
-		
-		console.log('CORS blocked for origin:', origin)
-		callback(new Error('Not allowed by CORS'))
 	},
 	credentials: true, // Allow cookies to be sent
 	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],

@@ -2,7 +2,7 @@
 
 Movie ticket booking web application with MERN stack (MongoDB, Express, React, NodeJS) & Tailwind CSS
 
-Demo: https://cine-desk-lovat.vercel.app/
+Demo: https://cine-desk-client.vercel.app/
 
 ## Table of Contents
 * [Project Purpose](#project-purpose)

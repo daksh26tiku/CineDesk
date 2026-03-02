@@ -13,6 +13,7 @@ const cinema = require('./routes/cinema')
 const theater = require('./routes/theater')
 const movie = require('./routes/movie')
 const showtime = require('./routes/showtime')
+const tmdb = require('./routes/tmdb')
 
 mongoose.set('strictQuery', false)
 mongoose
@@ -22,7 +23,12 @@ mongoose
 	})
 	.catch((err) => console.log(err))
 
+const http = require('http')
 const app = express()
+const server = http.createServer(app)
+const { initializeSocket } = require('./socket')
+
+const io = initializeSocket(server)
 
 // Frontend URLs (remove trailing slash and add both www and non-www versions)
 const FRONTEND_URLS = [
@@ -44,7 +50,7 @@ const corsOptions = {
 	origin: function (origin, callback) {
 		// Allow requests with no origin (mobile apps, postman, etc.)
 		if (!origin) return callback(null, true)
-		
+
 		if (FRONTEND_URLS.includes(origin)) {
 			callback(null, true)
 		} else {
@@ -92,8 +98,8 @@ app.use(xss())
 
 // Add a health check endpoint (available at both /health and /api/health)
 const healthCheck = (req, res) => {
-	res.status(200).json({ 
-		status: 'OK', 
+	res.status(200).json({
+		status: 'OK',
 		timestamp: new Date().toISOString(),
 		environment: process.env.NODE_ENV || 'development'
 	})
@@ -115,6 +121,7 @@ app.use('/api/cinema', cinema)
 app.use('/api/theater', theater)
 app.use('/api/movie', movie)
 app.use('/api/showtime', showtime)
+app.use('/api/tmdb', tmdb)
 
 // Also support non-prefixed routes for local development backward compatibility
 app.use('/auth', auth)
@@ -122,12 +129,13 @@ app.use('/cinema', cinema)
 app.use('/theater', theater)
 app.use('/movie', movie)
 app.use('/showtime', showtime)
+app.use('/tmdb', tmdb)
 
 // Catch-all error handler
 app.use((err, req, res, next) => {
 	console.error('Error:', err.message)
 	console.error('Stack:', err.stack)
-	
+
 	if (err.message === 'Not allowed by CORS') {
 		return res.status(403).json({
 			success: false,
@@ -135,11 +143,11 @@ app.use((err, req, res, next) => {
 			origin: req.get('Origin')
 		})
 	}
-	
+
 	res.status(500).json({
 		success: false,
-		message: process.env.NODE_ENV === 'production' 
-			? 'Internal server error' 
+		message: process.env.NODE_ENV === 'production'
+			? 'Internal server error'
 			: err.message
 	})
 })
@@ -156,7 +164,7 @@ const port = process.env.PORT || 3000
 
 // Only listen if not in serverless environment (Vercel)
 if (require.main === module) {
-	app.listen(port, '0.0.0.0', () => {
+	server.listen(port, '0.0.0.0', () => {
 		console.log(`Server running on port ${port}`)
 		console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
 		console.log(`Allowed origins: ${FRONTEND_URLS.join(', ')}`)

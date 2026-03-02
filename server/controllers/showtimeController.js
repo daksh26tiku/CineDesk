@@ -146,16 +146,16 @@ exports.purchase = async (req, res, next) => {
 		const { seats } = req.body
 		const user = req.user
 
-		const showtime = await Showtime.findById(req.params.id).populate({ path: 'theater', select: 'seatPlan' })
+		const showtimeReq = await Showtime.findById(req.params.id).populate({ path: 'theater', select: 'seatPlan' })
 
-		if (!showtime) {
+		if (!showtimeReq) {
 			return res.status(400).json({ success: false, message: `Showtime not found with id of ${req.params.id}` })
 		}
 
 		const isSeatValid = seats.every((seatNumber) => {
 			const [row, number] = seatNumber.match(/([A-Za-z]+)(\d+)/).slice(1)
-			const maxRow = showtime.theater.seatPlan.row
-			const maxCol = showtime.theater.seatPlan.column
+			const maxRow = showtimeReq.theater.seatPlan.row
+			const maxCol = showtimeReq.theater.seatPlan.column
 
 			if (maxRow.length !== row.length) {
 				return maxRow.length > row.length
@@ -168,27 +168,42 @@ exports.purchase = async (req, res, next) => {
 			return res.status(400).json({ success: false, message: 'Seat is not valid' })
 		}
 
-		const isSeatAvailable = seats.every((seatNumber) => {
-			const [row, number] = seatNumber.match(/([A-Za-z]+)(\d+)/).slice(1)
-			return !showtime.seats.some((seat) => seat.row === row && seat.number === parseInt(number, 10))
-		})
-
-		if (!isSeatAvailable) {
-			return res.status(400).json({ success: false, message: 'Seat not available' })
-		}
-
+		// Convert seats to the object format
 		const seatUpdates = seats.map((seatNumber) => {
 			const [row, number] = seatNumber.match(/([A-Za-z]+)(\d+)/).slice(1)
 			return { row, number: parseInt(number, 10), user: user._id }
 		})
 
-		showtime.seats.push(...seatUpdates)
-		const updatedShowtime = await showtime.save()
+		// Make this an ATOMIC update to prevent double-booking race condition at DB level
+		// Build the condition: none of our requested seats can already exist in showtime.seats
+		const seatCheckConditions = seats.map((seatNumber) => {
+			const [row, number] = seatNumber.match(/([A-Za-z]+)(\d+)/).slice(1)
+			return { row, number: parseInt(number, 10) }
+		})
+
+		// MongoDB ensures this entire operation happens as an atomic transaction on this document
+		const updatedShowtime = await Showtime.findOneAndUpdate(
+			{
+				_id: req.params.id,
+				// Ensure that NO element in the currently saved seats array matches ANY of the requested seats
+				// If a match is found, the query won't match any documents, returning null
+				$nor: seatCheckConditions.map(seat => ({
+					seats: { $elemMatch: { row: seat.row, number: seat.number } }
+				}))
+			},
+			{ $push: { seats: { $each: seatUpdates } } },
+			{ new: true } // Return the updated document
+		)
+
+		if (!updatedShowtime) {
+			// This means the document wasn't found - which means one of the seats was already taken
+			return res.status(400).json({ success: false, message: 'One or more seats are already purchased by another user' })
+		}
 
 		const updatedUser = await User.findByIdAndUpdate(
 			user._id,
 			{
-				$push: { tickets: { showtime, seats: seatUpdates } }
+				$push: { tickets: { showtime: showtimeReq, seats: seatUpdates } }
 			},
 			{ new: true }
 		)

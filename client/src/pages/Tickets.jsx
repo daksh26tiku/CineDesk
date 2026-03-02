@@ -1,5 +1,6 @@
 import axios from '../config/axiosConfig'
 import { useContext, useEffect, useState } from 'react'
+import { QRCodeCanvas } from 'qrcode.react'
 import Loading from '../components/Loading'
 import Navbar from '../components/Navbar'
 import ShowtimeDetails from '../components/ShowtimeDetails'
@@ -48,16 +49,35 @@ const Tickets = () => {
 						) : (
 							<div className="grid grid-cols-1 gap-4 xl:grid-cols-2 min-[1920px]:grid-cols-3">
 								{tickets.map((ticket, index) => {
+									const seatString = ticket.seats.map((seat) => seat.row + seat.number).join(', ')
+									const qrData = JSON.stringify({
+										ticketId: ticket._id,
+										userId: auth._id,
+										showtimeId: ticket.showtime._id,
+										seats: seatString
+									})
+
 									return (
-										<div className="flex flex-col" key={index}>
+										<div className="flex flex-col overflow-hidden rounded-lg bg-white drop-shadow-lg" key={index}>
 											<ShowtimeDetails showtime={ticket.showtime} />
-											<div className="flex h-full flex-col justify-between rounded-b-lg bg-gradient-to-br from-indigo-100 to-white text-center text-lg drop-shadow-lg md:flex-row">
-												<div className="flex h-full flex-col items-center gap-x-4 px-4 py-2 md:flex-row">
-													<p className="whitespace-nowrap font-semibold">Seats : </p>
-													<p className="text-left">
-														{ticket.seats.map((seat) => seat.row + seat.number).join(', ')}
-													</p>
-													<p className="whitespace-nowrap">({ticket.seats.length} seats)</p>
+											<div className="flex h-full flex-col items-center justify-between border-t-2 border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-4 md:flex-row">
+												<div className="flex flex-col gap-2">
+													<div className="flex items-center gap-x-2">
+														<p className="whitespace-nowrap font-semibold">Seats:</p>
+														<p className="text-left font-bold text-indigo-700">{seatString}</p>
+													</div>
+													<div className="flex items-center gap-x-2">
+														<p className="whitespace-nowrap font-semibold">Total:</p>
+														<p className="text-left">{ticket.seats.length} seats</p>
+													</div>
+												</div>
+												<div className="mt-4 shrink-0 rounded-lg bg-white p-2 shadow-inner md:mt-0">
+													<QRCodeCanvas
+														value={qrData}
+														size={100}
+														level={"H"}
+														includeMargin={false}
+													/>
 												</div>
 											</div>
 										</div>

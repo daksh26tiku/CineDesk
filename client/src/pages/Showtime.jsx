@@ -9,14 +9,22 @@ import Navbar from '../components/Navbar'
 import Seat from '../components/Seat'
 import ShowtimeDetails from '../components/ShowtimeDetails'
 import { AuthContext } from '../context/AuthContext'
+import { useSocket } from '../context/SocketContext'
+import { ClockIcon } from '@heroicons/react/24/outline'
 
 const Showtime = () => {
 	const { auth } = useContext(AuthContext)
+	const socket = useSocket()
 	const { id } = useParams()
 	const [showtime, setShowtime] = useState({})
 	const [selectedSeats, setSelectedSeats] = useState([])
+	const [lockedSeats, setLockedSeats] = useState({})
 	const [filterRow, setFilterRow] = useState(null)
 	const [filterColumn, setFilterColumn] = useState(null)
+
+	// 15-second pre-purchase anti-hoarding timer
+	const [selectionTimeLeft, setSelectionTimeLeft] = useState(15)
+
 	const sortedSelectedSeat = selectedSeats.sort((a, b) => {
 		const [rowA, numberA] = a.match(/([A-Za-z]+)(\d+)/).slice(1)
 		const [rowB, numberB] = b.match(/([A-Za-z]+)(\d+)/).slice(1)
@@ -64,6 +72,82 @@ const Showtime = () => {
 		fetchShowtime()
 	}, [])
 
+	const isPast = showtime.showtime ? new Date(showtime.showtime) < new Date() : false
+
+	useEffect(() => {
+		if (socket && showtime._id && !isPast) {
+			const userId = auth?._id || auth?.id || auth?.username;
+			// Actively unlock any lingering seats for this user to prevent hoarding/inventory denial upon page refresh
+			if (userId) {
+				socket.emit('unlock_all_user_seats', { showtimeId: showtime._id, userId })
+			}
+
+			socket.emit('join_showtime', { showtimeId: showtime._id, userId })
+
+			socket.on('locked_seats_update', (locks) => {
+				setLockedSeats(locks)
+			})
+
+			socket.on('lock_failed', ({ seatId, message }) => {
+				toast.error(message, {
+					position: 'top-center',
+					autoClose: 2000,
+					pauseOnHover: false
+				})
+				// Force deselection visually since lock failed
+				setSelectedSeats((prev) => prev.filter((e) => e !== seatId))
+			})
+
+			return () => {
+				socket.emit('leave_showtime', showtime._id)
+				socket.off('locked_seats_update')
+				socket.off('lock_failed')
+			}
+		}
+	}, [socket, showtime._id, isPast])
+
+	// Anti-hoarding Selection Timer Logic
+	useEffect(() => {
+		// Only run timer if they have seats actually selected
+		if (selectedSeats.length === 0) {
+			setSelectionTimeLeft(15)
+			return
+		}
+
+		if (selectionTimeLeft <= 0) {
+			// Time is up, boot their seats
+			toast.error('Selection timed out. Seats released.', {
+				position: 'top-center',
+				autoClose: 3000,
+				pauseOnHover: false
+			})
+
+			const userId = auth?._id || auth?.id || auth?.username;
+			if (socket && showtime._id && userId) {
+				socket.emit('unlock_all_user_seats', { showtimeId: showtime._id, userId })
+			}
+
+			setSelectedSeats([]) // Wipe local selection
+			setSelectionTimeLeft(15) // Reset timer
+			return
+		}
+
+		const timer = setInterval(() => {
+			setSelectionTimeLeft((prev) => prev - 1)
+		}, 1000)
+
+		return () => clearInterval(timer)
+	}, [selectedSeats.length, selectionTimeLeft, socket, showtime._id, auth])
+
+	// Reset timer to 15 seconds every time they click a new seat to keep looking
+	useEffect(() => {
+		if (selectedSeats.length > 0) {
+			setSelectionTimeLeft(15)
+		}
+	}, [selectedSeats.length])
+
+	// Lock cleanup moved to Purchase component or timeout to allow for seamless routing
+
 	const row = showtime?.theater?.seatPlan?.row
 	let rowLetters = []
 	if (row) {
@@ -85,7 +169,6 @@ const Showtime = () => {
 		colNumber.push(k)
 	}
 
-	const isPast = new Date(showtime.showtime) < new Date()
 	const filteredSeats = showtime?.seats?.filter((seat) => {
 		return (
 			(!filterRow || filterRow.map((row) => row.value).includes(seat.row)) &&
@@ -109,17 +192,23 @@ const Showtime = () => {
 								)}
 							</div>
 							{!!selectedSeats.length && (
-								<Link
-									to={auth.role ? `/purchase/${id}` : '/login'}
-									state={{
-										selectedSeats: sortedSelectedSeat,
-										showtime
-									}}
-									className="flex items-center justify-center gap-2 rounded-b-lg bg-gradient-to-br from-indigo-600 to-blue-500 px-4 py-1 font-semibold text-white hover:from-indigo-500 hover:to-blue-500 md:rounded-none md:rounded-br-lg"
-								>
-									<p>Purchase</p>
-									<TicketIcon className="h-7 w-7 text-white" />
-								</Link>
+								<div className="flex items-stretch mt-4 md:mt-0">
+									<div className="flex items-center gap-1 bg-red-50 text-red-600 px-3 font-mono font-bold text-sm border border-red-200 border-r-0 md:border-b-0 md:border-t-0 md:rounded-tl-lg">
+										<ClockIcon className="h-4 w-4" />
+										00:{selectionTimeLeft.toString().padStart(2, '0')}
+									</div>
+									<Link
+										to={auth.role ? `/purchase/${id}` : '/login'}
+										state={{
+											selectedSeats: sortedSelectedSeat,
+											showtime
+										}}
+										className="flex items-center justify-center gap-2 rounded-br-lg md:rounded-bl-none bg-gradient-to-br from-indigo-600 to-blue-500 px-4 py-2 sm:py-1 font-semibold text-white hover:from-indigo-500 hover:to-blue-500"
+									>
+										<p>Purchase</p>
+										<TicketIcon className="h-6 w-6 text-white" />
+									</Link>
+								</div>
 							)}
 						</div>
 
@@ -155,8 +244,11 @@ const Showtime = () => {
 															<Seat
 																key={index}
 																seat={{ row: rowLetter, number: col }}
+																isSelected={selectedSeats.includes(`${rowLetter}${col}`)}
 																setSelectedSeats={setSelectedSeats}
 																selectable={!isPast}
+																showtimeId={showtime._id}
+																lockedSeats={lockedSeats}
 																isAvailable={
 																	!showtime.seats.find(
 																		(seat) =>

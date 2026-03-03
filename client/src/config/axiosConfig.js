@@ -1,8 +1,8 @@
 import axios from 'axios'
 
-// In production (Vercel), use relative /api path
-// In development, use the VITE_API_BASE_URL env variable
-const baseURL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080')
+// Use the external Render URL if provided, otherwise fallback to relative routing or localhost
+const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
+const baseURL = import.meta.env.PROD && !import.meta.env.VITE_BACKEND_URL ? '/api' : `${backendUrl.replace(/\/$/, '')}/api`
 
 const instance = axios.create({
   baseURL,

@@ -13,7 +13,7 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         // Connect to the backend socket server
         // Determine URL based on environment (Vite uses VITE_ prefix)
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
+        const backendUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:8080'
 
         const newSocket = io(backendUrl, {
             withCredentials: true,

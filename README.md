@@ -1,318 +1,197 @@
-<h1 align="center">Cinema-Booking</h1>
-
-Movie ticket booking web application with MERN stack (MongoDB, Express, React, NodeJS) & Tailwind CSS
-
-Demo: https://cine-desk-client.vercel.app/
-
+<h1 align="center">🎬 CineDesk</h1>
+<p align="center">
+  A full-stack cinema booking system built with the MERN stack — featuring real-time seat locking, concurrent booking prevention, JWT-secured APIs, and role-based access control.
+</p>
+<p align="center">
+  <a href="https://cine-desk-client.vercel.app/">🌐 Live Demo</a>
+</p>
+---
 ## Table of Contents
-* [Project Purpose](#project-purpose)
-* [Technologies](#technologies)
-* [Quick Tour](#quick-tour)
+* [Overview](#overview)
+* [Key Technical Features](#key-technical-features)
+* [Tech Stack](#tech-stack)
+* [Roles & Permissions](#roles--permissions)
 * [Guide](#guide)
-* [How to run the app](#how-to-run-the-app)
-
-## Project Purpose
-The purpose of this project is to improve my full-stack web development skills, learning front-end technologies like React and Tailwind CSS, and backend technologies like Node.js, Express, and MongoDB.
-
-## Technologies
-* React v18.2.0
-* React Router Dom v6.14.2
-* React Hook Form v7.45.4
-* Tailwind CSS v3.3.3
-* Vite v4.4.8
-* NodeJS
-* Mongoose v7.4.2
-* Express v4.18.2
-* MongoDB
-* And more...
-
-
+* [How to Run the App](#how-to-run-the-app)
+---
+## Overview
+CineDesk is a full-stack cinema ticket booking platform. Users can browse movies, view showtimes across cinemas, and book seats in real time. The system handles concurrent seat selection across multiple users using WebSockets and server-side atomic operations to guarantee no two users can ever book the same seat.
+---
+## Key Technical Features
+### 🔒 Security
+- **JWT Authentication** — Stateless auth via signed tokens; delivered as `httpOnly` cookies and `Authorization` headers
+- **Role-Based Access Control (RBAC)** — `protect` + `authorize('admin')` middleware chain on all sensitive routes
+- **CORS Whitelist** — Only explicitly listed frontend origins are allowed; all others are blocked
+- **Helmet** — Sets 11+ HTTP security headers including Content Security Policy, X-Frame-Options, and HSTS
+- **XSS Protection** — `xss-clean` sanitizes all `req.body`, `req.query`, and `req.params` input
+- **NoSQL Injection Prevention** — `express-mongo-sanitize` strips MongoDB operators (`$`, `.`) from user input
+- **Bcrypt** — Passwords hashed with 10 salt rounds via a pre-save Mongoose hook; never stored in plain text
+### ⚡ Real-Time Concurrent Seat Booking
+- **Socket.io Rooms** — Each showtime is a Socket.io room; all viewers share live seat state
+- **In-Memory Seat Locking** — Seats are locked the moment a user clicks them, instantly visible to all others in the room
+- **2-Minute TTL** — Seat locks expire automatically after 2 minutes; a countdown timer on the purchase page enforces this client-side
+- **Server-Side Periodic Cleanup** — A `setInterval` running every 30 seconds sweeps expired locks server-side, even if the client crashes
+- **Disconnect Grace Period** — When a user navigates to the purchase page (causing a socket disconnect), their locks are preserved for 15 seconds to allow reconnection, preventing false releases
+- **Atomic DB Operation** — The final purchase uses MongoDB's `findOneAndUpdate` with `$nor` + `$elemMatch` — a single atomic check-and-write that makes double booking physically impossible at the database level, regardless of concurrency
+### 🗄️ Database Design
+- **Cascade Deletion** — Mongoose `pre('deleteOne')` hooks chain deletions automatically: Cinema → Theater → Showtime → User tickets
+- **Integrity Constraints** — Unique indexes, required fields, enums, regex validators, and `select: false` on sensitive fields
+- **`runValidators: true`** — Schema validators run on update operations, not just on document creation
+### 🎥 TMDB Integration
+- Movie details, ratings, taglines, and synopsis fetched live from The Movie Database API
+- Auto-scrolling backdrop gallery, embedded YouTube trailer, and cast list shown on the showtime page
+---
+## Tech Stack
+### Frontend
+| Technology | Version |
+|---|---|
+| React | 18.2.0 |
+| React Router Dom | 6.14.2 |
+| React Hook Form | 7.45.4 |
+| Tailwind CSS | 3.3.3 |
+| Socket.io Client | 4.x |
+| Axios | 1.x |
+| Vite | 4.4.8 |
+### Backend
+| Technology | Version |
+|---|---|
+| Node.js | 20.x |
+| Express | 4.18.2 |
+| Mongoose | 7.4.2 |
+| MongoDB | Atlas |
+| Socket.io | 4.8.3 |
+| jsonwebtoken | 9.0.1 |
+| bcryptjs | 2.4.3 |
+| helmet | 7.0.0 |
+| express-mongo-sanitize | 2.2.0 |
+| xss-clean | 0.1.4 |
+| cors | 2.8.5 |
+---
+## Roles & Permissions
+| Role | Permissions |
+|---|---|
+| 👀 **Viewer** (not logged in) | Browse movies, cinemas, schedules · View released showtime seats |
+| 👤 **User** | All Viewer permissions · Purchase tickets · View own ticket history |
+| 👑 **Admin** | All User permissions · Manage cinemas, theaters, movies, showtimes · View booked seat details · Manage user roles |
+---
 ## Guide
-
-### 🧩 Role / Feature
-
-There are 3 roles on this website with corresponding permissions:
-
-| Role  | Permisson / Feature |
-|-------------|-------------|
-|👀 Viewer (Not logged in)  | **1. View released showtimes by choosing from** <br> &emsp;- Movie in home page <br>  &emsp;- Cinema's theater in cinema page <br> &emsp;- Cinema's schedule in schedule page <br> **2. View released showtimes for today and the future** <br> **3. View seats for released showtimes on the showtime page**|
-|👤 User   | **1. All Viewer permissions** <br> **2. Purchase tickets on the showtime page** <br> **3. View purchased tickets on the ticket page**|
-|👑 Admin   | **1. All User permissions** <br> **2. View all showtimes for any date** <br> **3. Manage cinemas** <br> **4. Manage theaters** <br> &emsp;- View theater's row, column, seats information <br> **5. Manage showtimes** <br> &emsp;- Search & filter & sort showtimes <br> &emsp;- View details of booked seats <br> **6. Manage movies** <br> **7. Manage user & admin**|
-
 ### 👀 Viewer
-Viewer have access to these pages for viewing released showtimes.
-
 <details>
-    <summary>Home page</summary><br>
-
+<summary>Home Page</summary><br>
 1. Select a movie
-
-<img src="./images/home_viewer1.png" width="600">
-
-2. Select a date by either typing it into the input or selecting from the calendar to view showtimes 
-
-<img src="./images/home_viewer2.png" width="600">
-
-3. Optionally, select a cinema to filter
-
-<img src="./images/home_viewer3.png" width="600">
-
-4. Click on a showtime to view seats
-
-<img src="./images/home_viewer4.png" width="600">
-
+2. Select a date to view showtimes
+3. Optionally filter by cinema
+4. Click a showtime to view the seat map
 </details>
-
 <details>
-    <summary>Cinema page</summary><br>
-
+<summary>Cinema Page</summary><br>
 1. Select a cinema
-
-<img src="./images/cinema_viewer1.png" width="600">
-
 2. Select a date to view its theaters and showtimes
-
-<img src="./images/cinema_viewer2.png" width="600">
-
-3. Click on a showtime to view seats
-
+3. Click a showtime to view seats
 </details>
-
 <details>
-    <summary>Schedule page</summary><br>
-
+<summary>Schedule Page</summary><br>
 1. Select a cinema
-
-<img src="./images/schedule_viewer1.png" width="600">
-
-2. Select a date to view its schedule for each theater
-
-<img src="./images/schedule_viewer2.png" width="600">
-
-3. Click on a showtime to view seats
-
-<img src="./images/schedule_viewer3.png" width="600">
-
+2. Select a date to view the full daily schedule per theater
+3. Click a showtime to view seats
 </details>
-
 <details>
-    <summary>Showtime page</summary><br>
-
-1. View available seats (white boxes) and unavailable seats (gray boxes)
-
-<img src="./images/showtime_viewer1.png" width="600">
-
-2. Viewer will be redirected to the login page if they click "Purchase"
-
+<summary>Showtime Page</summary><br>
+- 🟩 **White** — available
+- ⬛ **Gray** — booked
+- 🟨 **Yellow (lock icon)** — locked by another user in real time
+- 🟦 **Blue (check icon)** — selected by you
+Viewers are redirected to login if they click Purchase.
 </details>
-
+---
 ### 👤 User
-User have all viewer permission. Including, the ability to purchase and view their own tickets
-
 <details>
-    <summary>Register / Login</summary><br>
-
-1. To create an user account, fill in a username, email, and password, then click "Register"
-
-<img src="./images/register1.png" width="600">
-
-2. To log in, fill in username and password, then click "Login"
-
-<img src="./images/login1.png" width="600">
-
+<summary>Register / Login</summary><br>
+1. Fill in username, email, and password → click **Register**
+2. Log in with username and password → click **Login**
 </details>
-
 <details>
-    <summary>Showtime page / Purchase tickets</summary><br>
-
-1. Select available seats 
-
-<img src="./images/showtime_user1.png" width="600">
-
-2. Click the "Purchase" button and confirm to purchase tickets
-
-<img src="./images/showtime_user2.png" width="600">
-
+<summary>Purchasing Tickets</summary><br>
+1. On the showtime page, click available seats — they lock in real time for other users
+2. A **2-minute countdown timer** starts on the purchase confirmation page
+3. Click **Confirm Purchase** to complete the booking
+4. If the timer expires, seats are automatically released and you are redirected
 </details>
-
 <details>
-    <summary>Ticket page</summary><br>
-
-1. View purchased tickets
-
-<img src="./images/ticket_user1.png" width="600">
-
+<summary>Ticket Page</summary><br>
+View all your purchased tickets with movie name, cinema, theater number, and showtime.
 </details>
-
+---
 ### 👑 Admin
-Admin have all permission.
-
 <details>
-    <summary>Create an admin account</summary><br>
-
-1. Register a new user.
-2. Access MongoDB and locate the user's data.
-3. Update the user's role to `admin`.
-4. The user will now become admin.
-   
-Note: After obtaining the first admin account, this user can assign admin roles to others using the User page.
-
+<summary>Creating an Admin Account</summary><br>
+1. Register a new user account
+2. In MongoDB Atlas, locate the user document and set `role: "admin"`
+3. Once the first admin exists, they can promote other users via the User page
 </details>
-    
 <details>
-    <summary>Home page</summary><br>
-
-1. Admin can view theater's row, column, seats information.
-
-<img src="./images/home_admin1.png" width="600">
-
-2. Admin can view all showtimes for any date
-
-<img src="./images/home_admin2.png" width="600">
-
+<summary>Cinema Management</summary><br>
+- Add, rename, or delete cinemas
+- Deleting a cinema cascades: all its theaters and their showtimes are deleted, and affected user tickets are removed automatically
 </details>
-
 <details>
-    <summary>Cinema page</summary><br>
-
-<img src="./images/cinema_admin1.png" width="600"><br>
-
-**Add a new cinema**
-1. Type the cinema's name.
-
-<img src="./images/add_cinema1.png" width="600">
-
-2. Click the "Add" button
-
-<img src="./images/add_cinema2.png" width="600"><br>
-
-**Edit a cinema's name**
-1. Click the "Edit" button
-
-<img src="./images/edit_cinema1.png" width="600">
-
-2. Enter the new cinema name and click "Save"
-
-<img src="./images/edit_cinema2.png" width="600"><br>
-
-**Delete a cinema**
-1. Click the "Delete" button and confirm by clicking "OK"
-
-<img src="./images/delete_cinema1.png" width="600"><br>
-
-**Add a theater to the cinema**
-1. Fill the letter of the last row and the number of the last column seat, then click "Add"
-
-<img src="./images/add_theater1.png" width="600"><br>
-
-**Delete the last added theater**
-1. Click the "Delete" button at the bottom of the page
-
-<img src="./images/add_theater2.png" width="600"><br>
-
-**Add showtimes**
-1. Select a movie
-2. Fill in the following values:
-    * **Showtime:** Movie start time
-    * **Repeat:** For example, 1 means the showtime is added for today only, while 4  mean the showtime is added for today and the next 3 days.
-    * **Release now:** Check to release this showtime for viewers and users to view or book
-    
-    **Auto increase**
-    * **Showtime:** Check to automatically update the showtime value based on the ending time of this showtime, along with a specified gap. This is useful when adding consecutive movies, ensuring appropriate spacing between showtimes.
-    * **Date:** Check to enable automatic increase of showtime to the next day if it exceeds 24 hours
-    * **Gap:** The minimum duration between movie showtimes
-    
-    **Rounding**
-    * **5-min:** Round up the auto-increased showtime value to the nearest 5 minutes, e.g., 12:21 -> 12:25
-    * **10-min:** Round up the auto-increased showtime value to the nearest 10 minutes, e.g., 12:21 -> 12:30
-
-3.  Click the "Add" button
-
-<img src="./images/add_showtime1.png" width="600">
-
-4. The new showtimes will added to the theater. An eye-slash icon indicates that this showtime is not yet released
-
-<img src="./images/add_showtime2.png" width="600">
-
+<summary>Theater Management</summary><br>
+- Add a theater by specifying the last row letter and number of columns
+- Delete theaters (cascades to showtimes and tickets)
 </details>
-
 <details>
-    <summary>Schedule page</summary><br>
-
-<img src="./images/schedule_admin1.png" width="600">
-
+<summary>Showtime Management</summary><br>
+- Add showtimes with optional daily repetition
+- Release or unrelease showtimes (controls visibility to viewers)
+- View details of all booked seats per showtime
+- Delete showtimes (cascades to user tickets)
 </details>
-
-
 <details>
-    <summary>Showtime page</summary><br>
-
-1. View details of booked seats
-2. Release, unrelease, or delete the showtime by clicking the button in the top-right corner
-
-<img src="./images/showtime_admin1.png" width="600">
-
+<summary>Movie Management</summary><br>
+- Add movies with name, poster URL, and runtime
+- Delete movies (cascades to all associated showtimes and tickets)
 </details>
-
 <details>
-    <summary>Movie page</summary><br>
-
-<img src="./images/movie1.png" width="600"><br>
-
-**Add a movie**
-1. Fill in the movie name, URL of the poster, and the length in hours (optional) and minutes. Then, click "Add" to add the movie.
-
-<img src="./images/movie2.png" width="600"><br>
-
-**Delete a movie**
-
-1. Click the "Delete" button and confirm by clicking "OK"
-
+<summary>Search / Filter Page</summary><br>
+- Filter and sort showtimes across all cinemas and dates
+- Bulk release, unrelease, or delete showtimes
 </details>
-
 <details>
-    <summary>Search page</summary><br>
-
-<img src="./images/search1.png" width="600">
-
-1. Filter & sort showtime and select to release / unreleased / delete them
-2. Click a "View" button to view seats
-
-<img src="./images/search2.png" width="600">
-
+<summary>User Management</summary><br>
+- View all users with their emails, roles, and purchased tickets
+- Promote or demote users between `user` and `admin` roles
+- Delete user accounts
 </details>
-
-<details>
-    <summary>User page</summary><br>
-
-1. View usernames, email addresses, roles, and tickets of users.
-2. Click the "View Tickets" button to see a user's purchased tickets.
-3. Click the "Set Admin" or "Set User" button to change the user's role.
-4. Click the "Delete" button to delete the account.
-
-<img src="./images/user1.png" width="600">
-
-</details>
-
-## How to run the app
-1. Download the code
-2. Create .env file in /server
+---
+## How to Run the App
+**1. Clone the repository**
+```bash
+git clone https://github.com/your-username/CineDesk.git
+cd CineDesk
 ```
+**2. Create a `.env` file in `/server`**
+```env
 PORT=8080
-DATABASE=<your MongoDB connection string URI>
-JWT_SECRET=<any random JWT secret>
+DATABASE=<your MongoDB Atlas connection string>
+JWT_SECRET=<any long random string>
 JWT_EXPIRE=30d
 JWT_COOKIE_EXPIRE=30
+NODE_ENV=development
 ```
-3. Start server side
+**3. Create a `.env` file in `/client`**
+```env
+VITE_SERVER_URL=http://localhost:8080
 ```
+**4. Start the server**
+```bash
 cd server
 npm install
 npm start
 ```
-4. Start client side
-```
+**5. Start the client**
+```bash
 cd client
 npm install
 npm run dev
 ```
+The app will be available at `http://localhost:5173`.
